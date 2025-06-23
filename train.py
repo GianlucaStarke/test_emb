@@ -1,11 +1,13 @@
 import os
 import json
 from dotenv import load_dotenv, find_dotenv
+from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain_openai import AzureOpenAIEmbeddings
 from langchain.docstore.document import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 load_dotenv(find_dotenv())
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 
 documents = []
 with open("dataset/sql_schema.jsonl", "r", encoding="utf-8") as f:
@@ -20,15 +22,16 @@ with open("dataset/sql_schema.jsonl", "r", encoding="utf-8") as f:
 
 print(f" {len(documents)} documentos carregados")
 
-embeddings = AzureOpenAIEmbeddings(
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT"),
-    api_key=os.getenv("AZURE_OPENAI_KEY"),
-    openai_api_version="2024-05-01-preview"
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,     
+    chunk_overlap=100    
 )
+chunks = text_splitter.split_documents(documents)
+print(f"🔹 {len(chunks)} chunks gerados para embeddings")
 
-db = FAISS.from_documents(documents, embeddings)
+embeddings = OpenAIEmbeddings(model="text-embedding-ada-002") 
+db = FAISS.from_documents(chunks, embeddings)
 
 os.makedirs("outputs", exist_ok=True)
 db.save_local("outputs/faiss_index")
-print("Índice FAISS salvo em outputs/faiss_index")
+print("Índice salvo com sucesso!")
